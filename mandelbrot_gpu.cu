@@ -29,7 +29,30 @@ __global__ void mandelbrot_gpu_vector(
     uint32_t max_iters,
     uint32_t *out /* pointer to GPU memory */
 ) {
-    /* your (GPU) code here... */
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // Get the plane coordinate X for the image pixel.
+    float cx = (float(j) / float(img_size)) * 2.5f - 2.0f;
+    float cy = (float(i) / float(img_size)) * 2.5f - 1.25f;
+
+    // Innermost loop: start the recursion from z = 0.
+    float x2 = 0.0f;
+    float y2 = 0.0f;
+    float w = 0.0f;
+    uint32_t iters = 0;
+    while (x2 + y2 <= 4.0f && iters < max_iters) {
+        float x = x2 - y2 + cx;
+        float y = w - x2 - y2 + cy;
+        x2 = x * x;
+        y2 = y * y;
+        float z = x + y;
+        w = z * z;
+        ++iters;
+    }
+
+    // Write result.
+    out[i * img_size + j] = iters;
 }
 
 void launch_mandelbrot_gpu_vector(
@@ -38,6 +61,12 @@ void launch_mandelbrot_gpu_vector(
     uint32_t *out /* pointer to GPU memory */
 ) {
     /* your (CPU) code here... */
+    dim3 threadsPerBlock(16, 16);
+    dim3 blocksPerGrid((img_size + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                       (img_size + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    
+    mandelbrot_gpu_vector<<<blocksPerGrid, threadsPerBlock>>>(img_size, max_iters, out);
+    cudaDeviceSynchronize();
 }
 
 /// <--- /your code here --->
